@@ -13,6 +13,15 @@ services:
       - WG_PERSISTENT_KEEPALIVE=${WG_PERSISTENT_KEEPALIVE:-25}
       - UI_TRAFFIC_STATS=${UI_TRAFFIC_STATS:-true}
       - UI_CHART_TYPE=${UI_CHART_TYPE:-1}
+      # Coolify conecta este contenedor a varias redes Docker (la del proyecto +
+      # la interna de su proxy), asi que puede tener mas de una interfaz de
+      # salida. El PostUp/PostDown por defecto de wg-easy hace NAT contra
+      # "eth0" a secas, y si la salida real a internet es otra interfaz el
+      # NAT nunca aplica (handshake OK, pero cero trafico de datos). Estas
+      # reglas hacen NAT/forward por subred de origen en vez de por nombre de
+      # interfaz, asi funcionan sin importar cuantas redes tenga el contenedor.
+      - WG_POST_UP=iptables -t nat -A POSTROUTING -s 10.8.0.0/24 ! -d 10.8.0.0/24 -j MASQUERADE; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT
+      - WG_POST_DOWN=iptables -t nat -D POSTROUTING -s 10.8.0.0/24 ! -d 10.8.0.0/24 -j MASQUERADE; iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT
     volumes:
       - wg-easy-data:/etc/wireguard
     ports:
